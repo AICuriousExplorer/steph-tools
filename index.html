@@ -115,9 +115,9 @@
     <div class="groupings" id="groupings"></div>
 
     <details class="settings">
-      <summary>Settings — your GPT links (set once)</summary>
+      <summary>Settings — GPT links (defaults built in; override only if needed)</summary>
       <div class="cfg" id="cfg"></div>
-      <p class="hint">Paste each custom GPT's share URL. Stored only in this browser.</p>
+      <p class="hint">The STEPH analyser GPT links are built into the page. Paste a URL here only to point a grouping at a different GPT (e.g. a test version); leave blank to use the default.</p>
     </details>
   </div>
 
@@ -151,15 +151,15 @@
 
 /* ---------------- configuration ---------------- */
 const GROUPINGS = [
-  { id:"durability",    name:"Durability",        needs:[],                          keyField:"priority_parts",
+  { id:"durability", url:"https://chatgpt.com/g/g-6a4f913ae5bc8191bfae02dafe1692c8-steph-durability-analyser",    name:"Durability",        needs:[],                          keyField:"priority_parts",
     blurb:"Functional durability, reliability, appearance & comfort. Runs first — its JSON feeds every other assistant." },
-  { id:"repair",        name:"Repairability",     needs:["durability"],              keyField:"repair_demand",
+  { id:"repair", url:"https://chatgpt.com/g/g-6a4fa65242808191b8f6bebbb8a88a75-steph-repairability-analyser",        name:"Repairability",     needs:["durability"],              keyField:"repair_demand",
     blurb:"Repair, renewal, spare parts, care & maintenance, reuse. Consumes the durability priority parts." },
-  { id:"recyclability", name:"Recyclability",     needs:["durability"], soft:["repair"], keyField:"clusters",
+  { id:"recyclability", url:"https://chatgpt.com/g/g-6a4fad252ef08191ad5d3dbe0a64aa16-steph-recyclability-analyser", name:"Recyclability",     needs:["durability"], soft:["repair"], keyField:"clusters",
     blurb:"Whole-product rating vs NOW/2030 scenarios. Uses durability scope; joint classes from repair if run." },
-  { id:"materials",     name:"Material content",  needs:["durability"], soft:["recyclability"], keyField:"part_a",
+  { id:"materials", url:"https://chatgpt.com/g/g-6a4fc5a7328c819191173465d5879e06-steph-material-content-analyser",     name:"Material content",  needs:["durability"], soft:["recyclability"], keyField:"part_a",
     blurb:"Recycled content %, SoC gate + class, microfibre release class. Reuses the recyclability mass table if run." },
-  { id:"energy",        name:"Energy use (care)", needs:["durability"],              keyField:"class_scheme",
+  { id:"energy", url:"https://chatgpt.com/g/g-6a4fb8ecaf008191bbc037d9a4fe085c-steph-in-use-impacts-analyser",        name:"Energy use (care)", needs:["durability"],              keyField:"class_scheme",
     blurb:"A–G care energy class from the validated care regime. N/A for rarely-washed groups — that is a valid outcome." },
 ];
 
@@ -253,7 +253,7 @@ function renderCfg(){
   for (const g of GROUPINGS){
     const lab = document.createElement("div"); lab.textContent = g.name + " GPT";
     const inp = document.createElement("input"); inp.type = "text";
-    inp.placeholder = "https://chatgpt.com/g/…"; inp.value = state.urls[g.id] || "";
+    inp.placeholder = g.url || "https://chatgpt.com/g/…"; inp.value = state.urls[g.id] || "";
     inp.addEventListener("change", () => { state.urls[g.id] = inp.value.trim(); save(); renderCards(); });
     cfg.appendChild(lab); cfg.appendChild(inp);
   }
@@ -356,7 +356,7 @@ function renderCards(){
       body.appendChild(rep);
     } else {
       const steps = document.createElement("ol"); steps.className = "steps";
-      const url = state.urls[g.id];
+      const url = state.urls[g.id] || g.url;
 
       const s1 = document.createElement("li"); s1.dataset.n = "1";
       const copyBtn = document.createElement("button");
