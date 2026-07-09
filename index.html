@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STEPH Tool 1 — Assessment Designer</title>
+<style>
+  :root{
+    --blue:#1E3A6E; --blue-d:#14294F; --teal:#2F9B84; --green-b:#8CC63F;
+    --grad:linear-gradient(90deg,#1E3A6E 0%,#2F9B84 55%,#8CC63F 100%); --bg:#f4f7fa; --card:#ffffff; --ink:#1f2933;
+    --muted:#5c6b7a; --line:#d9e2ec; --ok:#1a7f37; --ok-bg:#e6f4ea; --warn:#9a6700;
+    --warn-bg:#fff8e1; --err:#c0392b;
+  }
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,"Segoe UI",Roboto,sans-serif;margin:0;background:var(--bg);color:var(--ink)}
+  header{background:#fff;color:var(--blue);padding:12px 28px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+    border-bottom:4px solid;border-image:var(--grad) 1}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:21px;letter-spacing:2px;color:var(--blue)}
+  header h1{margin:0;font-size:16.5px;flex:1;color:var(--blue);font-weight:600;border-left:1px solid var(--line);padding-left:16px}
+  nav a{color:var(--teal);text-decoration:none;font-size:13px;font-weight:700;margin-left:14px}
+  nav a.here{color:var(--blue);border-bottom:2px solid var(--green-b);padding-bottom:2px}
+  header p{margin:6px 0 0;font-size:12.5px;color:var(--muted);flex-basis:100%}
+  main{max-width:980px;margin:0 auto;padding:20px 16px 60px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin-bottom:16px}
+  .panel h2{margin:0 0 10px;font-size:16px}
+  label{font-weight:600;font-size:13.5px}
+  input[type=text],textarea{width:100%;border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-size:14px;margin-top:4px}
+  textarea{font-family:ui-monospace,Menlo,monospace;font-size:12px;min-height:90px}
+  .groupings{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+  .groupings label{display:flex;align-items:center;gap:6px;font-weight:500;background:var(--bg);
+    border:1px solid var(--line);border-radius:20px;padding:6px 14px;cursor:pointer;font-size:13.5px}
+  .groupings input{accent-color:var(--blue)}
+  button{border:0;border-radius:6px;padding:8px 14px;font-size:13.5px;font-weight:600;cursor:pointer}
+  .btn-primary{background:var(--blue);color:#fff}
+  .btn-primary:hover{background:var(--blue-d)}
+  .btn-primary:disabled{background:#9db8cf;cursor:not-allowed}
+  .btn-ghost{background:var(--bg);color:var(--blue);border:1px solid var(--line)}
+  .btn-small{padding:6px 10px;font-size:12.5px}
+
+  /* progress stepper */
+  .stepper{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 4px}
+  .step{flex:1;min-width:120px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;
+    background:var(--bg);cursor:pointer;text-align:left}
+  .step .s-name{font-size:12.5px;font-weight:700}
+  .step .s-state{font-size:11px;color:var(--muted);margin-top:2px}
+  .step.done{background:var(--ok-bg);border-color:#b7dfc2}
+  .step.done .s-state{color:var(--ok);font-weight:700}
+  .step.active{background:#fff;border-color:var(--teal);box-shadow:0 0 0 2px rgba(47,155,132,.2)}
+  .step.active .s-state{color:var(--teal);font-weight:700}
+  .step.locked{opacity:.55}
+  .progress-line{font-size:13px;font-weight:600;margin-top:6px}
+  .progress-line .pct{color:var(--ok)}
+
+  .card{border:1px solid var(--line);border-radius:10px;margin:12px 0;background:var(--card);overflow:hidden}
+  .card.locked{opacity:.55}
+  .card.saved{border-left:5px solid var(--ok)}
+  .card.active{border-left:5px solid var(--teal)}
+  .card-head{display:flex;align-items:center;gap:10px;padding:12px 16px;background:#eef3ee;cursor:pointer}
+  .card.saved .card-head{background:var(--ok-bg)}
+  .card-head .num{background:var(--blue);color:#fff;border-radius:50%;width:26px;height:26px;
+    display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex:0 0 26px}
+  .card.saved .card-head .num{background:var(--ok)}
+  .card-head h3{margin:0;font-size:15px;flex:1}
+  .chip{font-size:11px;font-weight:700;border-radius:4px;padding:2px 8px;letter-spacing:.3px}
+  .chip.todo{background:#e1e7ef;color:var(--muted)}
+  .chip.ready{background:#fff3cd;color:var(--warn)}
+  .chip.done{background:#d4edda;color:var(--ok)}
+  .card-body{padding:14px 16px;display:none;border-top:1px solid var(--line)}
+  .card.open .card-body{display:block}
+  .steps{margin:0;padding-left:0;list-style:none}
+  .steps li{margin:10px 0;padding-left:26px;position:relative;font-size:13.5px}
+  .steps li::before{content:attr(data-n);position:absolute;left:0;top:0;background:var(--bg);
+    border:1px solid var(--line);border-radius:50%;width:18px;height:18px;font-size:11px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;color:var(--muted)}
+  .hint{font-size:12px;color:var(--muted);margin-top:4px}
+  .msg{font-size:12.5px;margin-top:6px;white-space:pre-wrap}
+  .msg.ok{color:var(--ok)} .msg.err{color:var(--err)} .msg.warn{color:var(--warn)}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px}
+  .banner{border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:10px}
+  .banner.ok{background:var(--ok-bg);border:1px solid #b7dfc2;color:#14532d}
+  .banner.warn{background:var(--warn-bg);border:1px solid #eadfa1;color:#7a5c00}
+  .banner b{display:block;margin-bottom:2px}
+  .summary{font-size:12.5px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin-top:8px}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  details.settings{margin-top:10px;font-size:13px}
+  details.settings summary{cursor:pointer;color:var(--blue);font-weight:600}
+  details.replace{margin-top:8px;font-size:13px}
+  details.replace summary{cursor:pointer;color:var(--muted);font-weight:600;font-size:12.5px}
+  .cfg{display:grid;grid-template-columns:130px 1fr;gap:6px 10px;margin-top:10px;align-items:center;font-size:12.5px}
+  .cfg input{margin:0}
+  footer{max-width:980px;margin:0 auto;padding:0 16px 40px;font-size:12px;color:var(--muted)}
+  .flow-note{font-size:12.5px;color:var(--muted);margin:2px 0 0}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><svg viewBox="0 0 100 100" width="34" height="34" aria-hidden="true" style="flex:0 0 34px"><defs><linearGradient id="stephg" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1E3A6E"/><stop offset=".5" stop-color="#2F9B84"/><stop offset="1" stop-color="#8CC63F"/></linearGradient></defs><path d="M88 4 C 90 40 86 70 62 86 C 40 98 14 94 8 88 C 2 82 2 56 14 36 C 30 10 62 2 88 4 Z" fill="url(#stephg)"/><path d="M86 8 C 62 24 42 48 20 88" stroke="#fff" stroke-width="2.4" fill="none" opacity=".55"/><path d="M80 6 C 54 24 34 50 14 82" stroke="#fff" stroke-width="1.6" fill="none" opacity=".4"/><path d="M88 16 C 68 34 50 58 30 90" stroke="#fff" stroke-width="1.6" fill="none" opacity=".4"/><path d="M70 6 C 48 26 30 52 10 74" stroke="#fff" stroke-width="1.1" fill="none" opacity=".3"/><path d="M88 28 C 72 44 56 64 40 90" stroke="#fff" stroke-width="1.1" fill="none" opacity=".3"/></svg><span>STEPH</span></div>
+  <h1>Tool 1 — Performance Protocol Designer</h1>
+  <nav>
+    <a href="index.html" class="here">1 · Design</a>
+    <a href="tool2.html">2 · Evidence &amp; readiness</a>
+    <a href="tool3.html">3 · DPP views</a>
+  </nav>
+  <p>Design product-group assessment standards across the five parameter groupings, one GPT at a time. Prototype — outputs are drafts for expert review, never final standards.</p>
+</header>
+<main>
+
+  <div class="panel">
+    <h2>1 · Product</h2>
+    <label for="product">Product type / product group</label>
+    <input type="text" id="product" placeholder="e.g. bed linen, bath towels, everyday trainers" autocomplete="off">
+    <p class="flow-note">One input is enough — each assistant derives the group scope itself.</p>
+
+    <div style="margin-top:14px"><label>Parameter groupings to assess</label></div>
+    <div class="groupings" id="groupings"></div>
+
+    <details class="settings">
+      <summary>Settings — your GPT links (set once)</summary>
+      <div class="cfg" id="cfg"></div>
+      <p class="hint">Paste each custom GPT's share URL. Stored only in this browser.</p>
+    </details>
+  </div>
+
+  <div class="panel">
+    <h2>2 · Run the assistants</h2>
+    <div class="stepper" id="stepper"></div>
+    <div class="progress-line" id="progressLine"></div>
+    <div id="cards"></div>
+  </div>
+
+  <div class="panel">
+    <h2>3 · Assessment record</h2>
+    <div class="summary" id="recordSummary">No blocks saved yet.</div>
+    <div class="toolbar">
+      <button class="btn-primary" id="exportBtn">Download assessment record (JSON)</button>
+      <button class="btn-ghost" id="importBtn">Import record…</button>
+      <input type="file" id="importFile" accept=".json" style="display:none">
+      <button class="btn-ghost" id="resetBtn">Reset all</button>
+      <a href="tool2.html" style="margin-left:auto"><button class="btn-primary">Continue to Evidence &amp; readiness →</button></a>
+    </div>
+    <p class="hint">The record carries over to the Evidence &amp; readiness page automatically in this browser; the download is the shareable/backup copy.</p>
+  </div>
+
+</main>
+<footer>
+  <div style="display:flex;gap:14px;align-items:flex-start;border-top:1px solid #d9e2ec;padding-top:14px;margin-top:6px"><svg viewBox="0 0 810 540" width="66" height="44" role="img" aria-label="European Union flag" style="flex:0 0 66px;border:1px solid #d9e2ec"><rect width="810" height="540" fill="#003399"/><polygon points="405.0,30.0 418.5,71.5 462.1,71.5 426.8,97.1 440.3,138.5 405.0,112.9 369.7,138.5 383.2,97.1 347.9,71.5 391.5,71.5" fill="#FFCC00"/><polygon points="495.0,54.1 508.5,95.6 552.1,95.6 516.8,121.2 530.3,162.7 495.0,137.0 459.7,162.7 473.2,121.2 437.9,95.6 481.5,95.6" fill="#FFCC00"/><polygon points="560.9,120.0 574.4,161.5 617.9,161.5 582.7,187.1 596.2,228.5 560.9,202.9 525.6,228.5 539.1,187.1 503.8,161.5 547.4,161.5" fill="#FFCC00"/><polygon points="585.0,210.0 598.5,251.5 642.1,251.5 606.8,277.1 620.3,318.5 585.0,292.9 549.7,318.5 563.2,277.1 527.9,251.5 571.5,251.5" fill="#FFCC00"/><polygon points="560.9,300.0 574.4,341.5 617.9,341.5 582.7,367.1 596.2,408.5 560.9,382.9 525.6,408.5 539.1,367.1 503.8,341.5 547.4,341.5" fill="#FFCC00"/><polygon points="495.0,365.9 508.5,407.3 552.1,407.3 516.8,433.0 530.3,474.4 495.0,448.8 459.7,474.4 473.2,433.0 437.9,407.3 481.5,407.3" fill="#FFCC00"/><polygon points="405.0,390.0 418.5,431.5 462.1,431.5 426.8,457.1 440.3,498.5 405.0,472.9 369.7,498.5 383.2,457.1 347.9,431.5 391.5,431.5" fill="#FFCC00"/><polygon points="315.0,365.9 328.5,407.3 372.1,407.3 336.8,433.0 350.3,474.4 315.0,448.8 279.7,474.4 293.2,433.0 257.9,407.3 301.5,407.3" fill="#FFCC00"/><polygon points="249.1,300.0 262.6,341.5 306.2,341.5 270.9,367.1 284.4,408.5 249.1,382.9 213.8,408.5 227.3,367.1 192.1,341.5 235.6,341.5" fill="#FFCC00"/><polygon points="225.0,210.0 238.5,251.5 282.1,251.5 246.8,277.1 260.3,318.5 225.0,292.9 189.7,318.5 203.2,277.1 167.9,251.5 211.5,251.5" fill="#FFCC00"/><polygon points="249.1,120.0 262.6,161.5 306.2,161.5 270.9,187.1 284.4,228.5 249.1,202.9 213.8,228.5 227.3,187.1 192.1,161.5 235.6,161.5" fill="#FFCC00"/><polygon points="315.0,54.1 328.5,95.6 372.1,95.6 336.8,121.2 350.3,162.7 315.0,137.0 279.7,162.7 293.2,121.2 257.9,95.6 301.5,95.6" fill="#FFCC00"/></svg><div><p style="margin:0 0 6px">Funded by the European Union under GA no. 101290632 (STEPH). Views and opinions expressed are however those of the author(s) only and do not necessarily reflect those of the European Union or the European Research Executive Agency (REA). Neither the European Union nor the granting authority can be held responsible for them.</p><p style="margin:0">STEPH T4.2 prototype · Data stays in your browser (localStorage) — export the record to share or archive. Not a compliance tool; outputs are drafts for expert review.</p></div></div>
+</footer>
+
+<script>
+"use strict";
+
+/* ---------------- configuration ---------------- */
+const GROUPINGS = [
+  { id:"durability",    name:"Durability",        needs:[],                          keyField:"priority_parts",
+    blurb:"Functional durability, reliability, appearance & comfort. Runs first — its JSON feeds every other assistant." },
+  { id:"repair",        name:"Repairability",     needs:["durability"],              keyField:"repair_demand",
+    blurb:"Repair, renewal, spare parts, care & maintenance, reuse. Consumes the durability priority parts." },
+  { id:"recyclability", name:"Recyclability",     needs:["durability"], soft:["repair"], keyField:"clusters",
+    blurb:"Whole-product rating vs NOW/2030 scenarios. Uses durability scope; joint classes from repair if run." },
+  { id:"materials",     name:"Material content",  needs:["durability"], soft:["recyclability"], keyField:"part_a",
+    blurb:"Recycled content %, SoC gate + class, microfibre release class. Reuses the recyclability mass table if run." },
+  { id:"energy",        name:"Energy use (care)", needs:["durability"],              keyField:"class_scheme",
+    blurb:"A–G care energy class from the validated care regime. N/A for rarely-washed groups — that is a valid outcome." },
+];
+
+/* ---------------- state ---------------- */
+const LS_KEY = "steph_homepage_v1";
+let state = { product:"", selected:["durability","repair","recyclability","materials","energy"], blocks:{}, urls:{} };
+try { const raw = localStorage.getItem(LS_KEY); if (raw) state = Object.assign(state, JSON.parse(raw)); } catch(e){}
+function save(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+
+/* in-memory UI state (not persisted): which cards are expanded, last save result */
+const openCards = {};
+let lastSave = null;   // {id, warnings[]}
+
+/* ---------------- prompt composition ---------------- */
+function composePrompt(g){
+  const product = (state.product||"").trim() || "[product type]";
+  let p = "";
+  if (g.id === "durability"){
+    p = "Draft a durability standard for: " + product;
+  } else {
+    p = "Product type: " + product + "\nDraft the " + g.name.toLowerCase() + " standard in HANDOFF MODE using the block(s) below.\n";
+    const feeds = g.needs.concat(g.soft||[]);
+    for (const dep of feeds){
+      if (state.blocks[dep]) p += "\n--- " + dep.toUpperCase() + " HANDOFF JSON ---\n" + JSON.stringify(state.blocks[dep]) + "\n";
+    }
+    const missingSoft = (g.soft||[]).filter(d=>!state.blocks[d]);
+    if (missingSoft.length) p += "\n(Note: no " + missingSoft.join("/") + " block available — proceed without it.)";
+  }
+  return p;
+}
+
+/* ---------------- paste-back validation ---------------- */
+function extractJson(text){
+  const a = text.indexOf("{"), b = text.lastIndexOf("}");
+  if (a === -1 || b === -1 || b <= a) throw new Error("No JSON object found in the pasted text.");
+  return JSON.parse(text.slice(a, b+1));
+}
+
+function validateBlock(g, obj){
+  const warnings = [];
+  if (!obj.product_group) warnings.push("Missing product_group field.");
+  if (!(g.keyField in obj)) warnings.push('Expected field "'+g.keyField+'" for the '+g.name+' assistant — is this the right GPT’s block?');
+  const mine = String(obj.product_group||"").toLowerCase().trim();
+  for (const [dep, blk] of Object.entries(state.blocks)){
+    if (dep === g.id) continue;
+    const theirs = String(blk.product_group||"").toLowerCase().trim();
+    if (mine && theirs && mine !== theirs)
+      warnings.push("product_group ('"+obj.product_group+"') differs from the "+dep+" block ('"+blk.product_group+"') — check you ran the same group.");
+  }
+  if (!obj.standard_clause_map) warnings.push("No standard_clause_map — the draft standard (stage 2) may not have been generated. Fine if intentional.");
+  return warnings;
+}
+
+/* ---------------- status helpers ---------------- */
+function statusOf(g){
+  if (!state.selected.includes(g.id)) return "na";
+  if (state.blocks[g.id]) return "done";
+  const blocked = g.needs.filter(d => state.selected.includes(d) && !state.blocks[d]);
+  return blocked.length ? "locked" : "ready";
+}
+function selectedGroupings(){ return GROUPINGS.filter(g=>state.selected.includes(g.id)); }
+function nextReady(){ return selectedGroupings().find(g=>statusOf(g)==="ready"); }
+function blockSummary(b){
+  const gaps = (b.gap_register||b.gap_list||[]).length;
+  return (b.standard_id||"(no standard_id)") + " · group: " + (b.product_group||"?")
+    + " · branches: " + ((b.duty_class_branches||[]).join("/")||"?")
+    + " · gaps: " + gaps + (b.standard_clause_map ? " · draft standard ✓" : " · no draft standard yet");
+}
+
+/* ---------------- rendering ---------------- */
+function renderGroupings(){
+  const wrap = document.getElementById("groupings");
+  wrap.innerHTML = "";
+  for (const g of GROUPINGS){
+    const l = document.createElement("label");
+    const c = document.createElement("input");
+    c.type = "checkbox"; c.checked = state.selected.includes(g.id);
+    c.addEventListener("change", () => {
+      state.selected = GROUPINGS.map(x=>x.id).filter(id =>
+        id === g.id ? c.checked : state.selected.includes(id));
+      save(); renderAll();
+    });
+    l.appendChild(c); l.appendChild(document.createTextNode(g.name));
+    wrap.appendChild(l);
+  }
+}
+
+function renderCfg(){
+  const cfg = document.getElementById("cfg");
+  cfg.innerHTML = "";
+  for (const g of GROUPINGS){
+    const lab = document.createElement("div"); lab.textContent = g.name + " GPT";
+    const inp = document.createElement("input"); inp.type = "text";
+    inp.placeholder = "https://chatgpt.com/g/…"; inp.value = state.urls[g.id] || "";
+    inp.addEventListener("change", () => { state.urls[g.id] = inp.value.trim(); save(); renderCards(); });
+    cfg.appendChild(lab); cfg.appendChild(inp);
+  }
+}
+
+function renderStepper(){
+  const wrap = document.getElementById("stepper");
+  wrap.innerHTML = "";
+  const sel = selectedGroupings();
+  const next = nextReady();
+  for (const g of sel){
+    const st = statusOf(g);
+    const div = document.createElement("div");
+    div.className = "step " + (st==="done" ? "done" : st==="locked" ? "locked" : (next && next.id===g.id ? "active" : ""));
+    const stateTxt = st==="done" ? "✓ saved" : st==="locked" ? "waiting for " + g.needs.filter(d=>!state.blocks[d]).join(", ") :
+                     (next && next.id===g.id ? "▶ you are here" : "ready");
+    div.innerHTML = '<div class="s-name">'+g.name+'</div><div class="s-state">'+stateTxt+'</div>';
+    div.addEventListener("click", ()=>{ openCards[g.id] = true; renderCards(); scrollToCard(g.id); });
+    wrap.appendChild(div);
+  }
+  const doneN = sel.filter(g=>statusOf(g)==="done").length;
+  const line = document.getElementById("progressLine");
+  line.innerHTML = doneN === sel.length && sel.length
+    ? '<span class="pct">All ' + sel.length + ' groupings complete ✓</span> — download the assessment record below.'
+    : '<span class="pct">' + doneN + ' of ' + sel.length + '</span> groupings complete' +
+      (next ? ' — next: <b>' + next.name + '</b>' : '');
+}
+
+function scrollToCard(id){
+  const el = document.querySelector('[data-card="'+id+'"]');
+  if (el) el.scrollIntoView({behavior:"smooth", block:"start"});
+}
+
+function renderCards(){
+  renderStepper();
+  const wrap = document.getElementById("cards");
+  wrap.innerHTML = "";
+  let n = 0;
+  const next = nextReady();
+
+  for (const g of selectedGroupings()){
+    n++;
+    const st = statusOf(g);
+    const isNext = next && next.id === g.id;
+    // default open: the active card, plus anything the user opened, plus a just-saved card
+    const open = openCards[g.id] !== undefined ? openCards[g.id]
+               : (isNext || (lastSave && lastSave.id === g.id));
+
+    const card = document.createElement("div");
+    card.dataset.card = g.id;
+    card.className = "card " + (st==="locked"?"locked ":"") + (st==="done"?"saved ":"") +
+                     (isNext?"active ":"") + (open?"open":"");
+
+    const head = document.createElement("div");
+    head.className = "card-head";
+    head.innerHTML = '<div class="num">'+(st==="done"?"✓":n)+'</div><h3>'+g.name+'</h3>';
+    const chip = document.createElement("span");
+    chip.className = "chip " + (st==="done"?"done":st==="locked"?"todo":"ready");
+    chip.textContent = st==="done" ? "SAVED ✓" : st==="locked" ? "waiting: "+g.needs.filter(d=>!state.blocks[d]).join(", ") : (isNext?"YOU ARE HERE":"ready");
+    head.appendChild(chip);
+    head.addEventListener("click", ()=>{ openCards[g.id] = !card.classList.contains("open"); renderCards(); });
+    card.appendChild(head);
+
+    const body = document.createElement("div");
+    body.className = "card-body";
+
+    /* persistent confirmation banner for saved blocks */
+    if (st === "done"){
+      const b = state.blocks[g.id];
+      const justSaved = lastSave && lastSave.id === g.id;
+      const hasWarn = justSaved && lastSave.warnings.length;
+      const banner = document.createElement("div");
+      banner.className = "banner " + (hasWarn ? "warn" : "ok");
+      banner.innerHTML = "<b>" + (justSaved ? "✓ Block saved just now" : "✓ Block saved") + "</b>" +
+        blockSummary(b) +
+        (hasWarn ? "<br><br>Warnings:<br>– " + lastSave.warnings.join("<br>– ") : "");
+      body.appendChild(banner);
+
+      const row = document.createElement("div"); row.className = "row";
+      const nxt = nextReady();
+      if (nxt){
+        const go = document.createElement("button");
+        go.className = "btn-primary btn-small";
+        go.textContent = "Continue to " + nxt.name + " →";
+        go.addEventListener("click", ()=>{ openCards[nxt.id] = true; renderCards(); scrollToCard(nxt.id); });
+        row.appendChild(go);
+      }
+      const clr = document.createElement("button");
+      clr.className = "btn-ghost btn-small"; clr.textContent = "Clear saved block";
+      clr.addEventListener("click", ()=>{
+        if (!confirm("Clear the saved "+g.name+" block? Downstream groupings that used it as handoff may need re-running.")) return;
+        delete state.blocks[g.id]; lastSave = null; save(); renderAll();
+      });
+      row.appendChild(clr);
+      body.appendChild(row);
+
+      const rep = document.createElement("details"); rep.className = "replace";
+      rep.innerHTML = "<summary>Replace with a different JSON block…</summary>";
+      rep.appendChild(pasteArea(g));
+      body.appendChild(rep);
+    } else {
+      const steps = document.createElement("ol"); steps.className = "steps";
+      const url = state.urls[g.id];
+
+      const s1 = document.createElement("li"); s1.dataset.n = "1";
+      const copyBtn = document.createElement("button");
+      copyBtn.className = "btn-primary btn-small";
+      const copyLabel = "Copy the starting prompt" + (g.needs.length ? " (handoff embedded)" : "");
+      copyBtn.textContent = copyLabel;
+      copyBtn.disabled = st === "locked";
+      copyBtn.addEventListener("click", async ()=>{
+        if (!(state.product||"").trim()){ alert("Enter the product type first (section 1)."); return; }
+        const txt = composePrompt(g);
+        try { await navigator.clipboard.writeText(txt); copyBtn.textContent = "Copied ✓"; }
+        catch(e){ window.prompt("Copy this prompt:", txt); }
+        setTimeout(()=>{ copyBtn.textContent = copyLabel; }, 1600);
+      });
+      s1.appendChild(copyBtn);
+      s1.appendChild(Object.assign(document.createElement("div"), {className:"hint", textContent:g.blurb}));
+      steps.appendChild(s1);
+
+      const s2 = document.createElement("li"); s2.dataset.n = "2";
+      const openLink = document.createElement("a");
+      if (url){ openLink.href = url; openLink.target = "_blank"; openLink.rel = "noopener"; }
+      else { openLink.href = "#"; openLink.addEventListener("click", e=>{e.preventDefault(); alert("Add this GPT's link under Settings first.");}); }
+      openLink.textContent = "Open the " + g.name + " GPT and paste the prompt";
+      s2.appendChild(openLink);
+      s2.appendChild(Object.assign(document.createElement("div"), {className:"hint",
+        textContent:"Work through the analysis; generate the draft standard and any gap standards; end with “finish & return”."}));
+      steps.appendChild(s2);
+
+      const s3 = document.createElement("li"); s3.dataset.n = "3";
+      s3.appendChild(pasteArea(g));
+      steps.appendChild(s3);
+
+      body.appendChild(steps);
+    }
+
+    card.appendChild(body);
+    wrap.appendChild(card);
+  }
+  renderSummary();
+}
+
+/* paste textarea + validate button (used in normal and replace modes) */
+function pasteArea(g){
+  const holder = document.createElement("div");
+  const ta = document.createElement("textarea");
+  ta.placeholder = "Paste the finish & return JSON block here…";
+  const saveBtn = document.createElement("button");
+  saveBtn.className = "btn-primary btn-small"; saveBtn.textContent = "Validate & save";
+  saveBtn.disabled = statusOf(g) === "locked";
+  const msg = document.createElement("div"); msg.className = "msg";
+  saveBtn.addEventListener("click", ()=>{
+    msg.className = "msg";
+    if (!ta.value.trim()){ msg.className="msg err"; msg.textContent = "Paste the JSON block first."; return; }
+    try{
+      const obj = extractJson(ta.value);
+      const warnings = validateBlock(g, obj);
+      state.blocks[g.id] = obj; save();
+      lastSave = { id: g.id, warnings };
+      renderCards();                    // re-render: card shows the green banner
+      openCards[g.id] = true;
+      scrollToCard(g.id);
+    } catch(e){
+      msg.className = "msg err";
+      msg.textContent = "Could not read that as JSON: " + e.message +
+        "\nMake sure you copied the whole code block from “finish & return”.";
+    }
+  });
+  const row = document.createElement("div"); row.className = "row";
+  row.appendChild(saveBtn);
+  holder.appendChild(ta); holder.appendChild(row); holder.appendChild(msg);
+  return holder;
+}
+
+function renderSummary(){
+  const el = document.getElementById("recordSummary");
+  const saved = GROUPINGS.filter(g=>state.blocks[g.id]);
+  if (!saved.length){ el.textContent = "No blocks saved yet."; return; }
+  const sel = selectedGroupings();
+  el.textContent = "Product: " + (state.product||"—") + " · saved " + saved.length + "/" + sel.length +
+    " groupings: " + saved.map(g=>g.name).join(", ");
+}
+
+function renderAll(){ renderGroupings(); renderCards(); }
+
+/* ---------------- record export / import / reset ---------------- */
+function record(){
+  return {
+    steph_homepage_record: "0.1",
+    product: state.product,
+    created: new Date().toISOString().slice(0,10),
+    groupings: state.blocks
+  };
+}
+document.getElementById("exportBtn").addEventListener("click", ()=>{
+  const blob = new Blob([JSON.stringify(record(), null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "STEPH_record_" + (state.product||"product").replace(/\W+/g,"_") + ".json";
+  a.click(); URL.revokeObjectURL(a.href);
+});
+document.getElementById("importBtn").addEventListener("click", ()=>document.getElementById("importFile").click());
+document.getElementById("importFile").addEventListener("change", (ev)=>{
+  const f = ev.target.files[0]; if (!f) return;
+  f.text().then(t=>{
+    try{
+      const r = JSON.parse(t);
+      if (!r.groupings) throw new Error("not a STEPH record");
+      state.product = r.product || state.product;
+      state.blocks = r.groupings; save();
+      document.getElementById("product").value = state.product;
+      renderAll();
+    } catch(e){ alert("Could not import: " + e.message); }
+  });
+});
+document.getElementById("resetBtn").addEventListener("click", ()=>{
+  if (!confirm("Clear the product and all saved blocks? (Your GPT links are kept.)")) return;
+  state.product = ""; state.blocks = {}; lastSave = null; save();
+  document.getElementById("product").value = "";
+  renderAll();
+});
+
+/* ---------------- init ---------------- */
+const productInput = document.getElementById("product");
+productInput.value = state.product || "";
+productInput.addEventListener("input", ()=>{ state.product = productInput.value; save(); renderStepper(); renderSummary(); });
+
+renderCfg(); renderAll();
+</script>
+</body>
+</html>
