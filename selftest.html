@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STEPH Tools — Self-Test</title>
+<style>
+  :root{--blue:#1E3A6E;--teal:#2F9B84;--green-b:#8CC63F;--bg:#f4f7fa;--line:#d9e2ec;--ok:#1a7f37;--err:#c0392b;--muted:#5c6b7a}
+  body{font-family:-apple-system,"Segoe UI",Roboto,sans-serif;margin:0;background:var(--bg);color:#1f2933}
+  header{background:#fff;color:var(--blue);padding:12px 28px;border-bottom:4px solid;font-weight:800;letter-spacing:1px;
+    border-image:linear-gradient(90deg,#1E3A6E,#2F9B84,#8CC63F) 1}
+  main{max-width:900px;margin:0 auto;padding:20px 16px 60px}
+  .panel{background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin-bottom:16px}
+  table{border-collapse:collapse;width:100%;font-size:13px;margin-top:10px}
+  td,th{border:1px solid var(--line);padding:6px 9px;text-align:left}
+  th{background:#eef4fa}
+  .pass{color:var(--ok);font-weight:700}.fail{color:var(--err);font-weight:700}
+  .summary{font-size:16px;font-weight:700;margin-top:12px}
+  .hint{font-size:12px;color:var(--muted)}
+  button{border:0;border-radius:6px;padding:9px 16px;font-weight:700;background:var(--blue);color:#fff;cursor:pointer;font-size:14px}
+</style>
+</head>
+<body>
+<header>STEPH · Tools self-test</header>
+<main>
+  <div class="panel">
+    <p>Runs the automated checks on the three tool pages: script integrity, gating and validation logic, readiness-check rules, view helpers, and static content (EU disclaimer, branding, embedded GPT links). GPT behaviour cannot be tested here — use the manual test script document for that.</p>
+    <button id="run">Run all tests</button>
+    <div class="summary" id="summary"></div>
+    <table id="results" style="display:none"><thead><tr><th style="width:36%">Test</th><th style="width:10%">Result</th><th>Detail</th></tr></thead><tbody></tbody></table>
+    <p class="hint" id="note"></p>
+  </div>
+</main>
+<script>
+"use strict";
+const results=[];
+function t(name, fn){
+  try{ const d=fn(); results.push([name,true,d||""]); }
+  catch(e){ results.push([name,false,e.message]); }
+}
+function assert(c,msg){ if(!c) throw new Error(msg||"assertion failed"); }
+
+/* extract a top-level function's source by brace matching */
+function grab(src,name){
+  const i=src.indexOf("function "+name);
+  assert(i>=0,"function "+name+" not found");
+  let d=0,j=src.indexOf("{",i);
+  for(let k=j;k<src.length;k++){
+    if(src[k]==="{")d++;
+    if(src[k]==="}"){d--;if(!d)return src.slice(i,k+1);}
+  }
+  throw new Error("unbalanced braces in "+name);
+}
+function scriptOf(html){
+  const m=html.match(/<script>\n([\s\S]*)\n<\/script>/);
+  assert(m,"script block not found");
+  return m[1];
+}
+/* build an isolated namespace containing the named functions, closing over env */
+function sandbox(src, names, env){
+  const body = names.map(n=>grab(src,n)).join("\n") +
+    "\nreturn {"+names.join(",")+"};";
+  return new Function(...Object.keys(env), body)(...Object.values(env));
+}
+
+async function runAll(){
+  results.length=0;
+  let pages={};
+  try{
+    for(const p of ["index.html","tool2.html","tool3.html"])
+      pages[p]=await (await fetch(p,{cache:"no-store"})).text();
+  }catch(e){
+    document.getElementById("summary").innerHTML='<span class="fail">Could not load the pages.</span>';
+    document.getElementById("note").textContent="This self-test fetches the sibling pages, which browsers block for files opened directly from a folder. Run it from the hosted site (GitHub Pages) — or a local web server.";
+    return;
+  }
+
+  /* ---------- static content, all pages ---------- */
+  for(const p of Object.keys(pages)){
+    t("static: EU funding disclaimer present — "+p, ()=>assert(pages[p].includes("Funded by the European Union under GA no. 101290632")));
+    t("static: STEPH branding palette — "+p, ()=>assert(pages[p].includes("#1E3A6E")&&pages[p].includes("stephg")));
+    t("static: nav links to all three pages — "+p, ()=>assert(pages[p].includes('href="index.html"')&&pages[p].includes('href="tool2.html"')&&pages[p].includes('href="tool3.html"')));
+  }
+
+  /* ---------- index.html logic ---------- */
+  const s1=scriptOf(pages["index.html"]);
+  t("index: GPT links embedded for all five analysers", ()=>{
+    const slugs=["durability-analyser","repairability-analyser","recyclability-analyser","material-content-analyser","in-use-impacts-analyser"];
+    for(const sl of slugs) assert(s1.includes(sl),"missing "+sl);
+    return "5 links";
+  });
+  const GROUPINGS=new Function("return "+s1.match(/const GROUPINGS = (\[[\s\S]*?\]);/)[1])();
+  t("index: six groupings configured (characterisation + five analysers)", ()=>assert(GROUPINGS.length===6));
+  const state={product:"bed linen",selected:GROUPINGS.map(g=>g.id),blocks:{},urls:{}};
+  const ix=sandbox(s1,["composePrompt","extractJson","validateBlock","statusOf","selectedGroupings","nextReady"],{state,GROUPINGS});
+  const {composePrompt,extractJson,validateBlock,statusOf,nextReady}=ix;
+  t("index: initial gating (characterisation ready, all five analysers locked)", ()=>{
+    assert(statusOf(GROUPINGS[0])==="ready");
+    for (let i=1;i<6;i++) assert(statusOf(GROUPINGS[i])==="locked","analyser "+i+" not locked");
+    assert(nextReady().id==="characterisation");
+  });
+  t("index: foundation save unlocks ALL five analysers in parallel (hub-and-spoke)", ()=>{
+    state.blocks.characterisation={product_group:"bed linen",component_map:[{component:"fabric",material:"polycotton",joint_class:"J-B"}],
+      failure_register:[{part:"zip",reparability_measure:true}],duty_class_branches:["D","C"],reference_care_regime:{D:{wash:"40C"}}};
+    for (let i=1;i<6;i++) assert(statusOf(GROUPINGS[i])==="ready","analyser "+i+" not unlocked");
+  });
+  t("index: analyser prompt embeds the FOUNDATION block", ()=>{
+    const p=composePrompt(GROUPINGS.find(g=>g.id==="repair"));
+    assert(p.includes("FOUNDATION BLOCK (Product Characteriser)")&&p.includes("bed linen"));
+  });
+  t("index: soft enrichments noted when absent (durability for repair)", ()=>{
+    const p=composePrompt(GROUPINGS.find(g=>g.id==="repair"));
+    assert(p.includes("no durability block available"));
+  });
+  t("index: durability block enriches downstream prompts once saved", ()=>{
+    state.blocks.durability={product_group:"bed linen",priority_parts:[{part:"zip"}],standard_id:"D-1"};
+    const p=composePrompt(GROUPINGS.find(g=>g.id==="energy"));
+    assert(p.includes("DURABILITY HANDOFF JSON"));
+  });
+  t("index: JSON extraction tolerates code fences and prose", ()=>{
+    const o=extractJson("here:\n```json\n{\"a\":1}\n```\nNEXT —");
+    assert(o.a===1);
+  });
+  t("index: wrong-GPT paste and group mismatch are flagged", ()=>{
+    const w=validateBlock(GROUPINGS.find(g=>g.id==="repair"),{product_group:"trainers",clusters:[]});
+    assert(w.some(x=>x.includes("repair_demand"))&&w.some(x=>x.includes("differs")));
+    return w.length+" warnings";
+  });
+  t("index: clean block passes with no warnings", ()=>{
+    const w=validateBlock(GROUPINGS.find(g=>g.id==="repair"),
+      {product_group:"bed linen",repair_demand:[],standard_clause_map:[]});
+    assert(w.length===0,JSON.stringify(w));
+  });
+
+  /* ---------- tool2.html logic ---------- */
+  const s2=scriptOf(pages["tool2.html"]);
+  {
+    let home={product:"bed linen",blocks:{
+      durability:{parameters:[
+        {parameter:"tensile_retention",method_ref:"ISO 13934-1 after ISO 15797 procedure 8 xN",evidence_type:"physical-test",
+         specimen_count_min:6,conditions:{wash_procedure:"ISO 15797 procedure 8"},class_thresholds:{provenance:"GUESS"}},
+        {parameter:"care_info",method_ref:"documentation",evidence_type:"documentation",class_thresholds:"TBD-BASECASE"}]},
+      recyclability:{rating:{now:"C",y2030:"B"},clusters:[{cluster:"cotton",mass_pct:96}]},
+      materials:{part_a:{r_post_pct:15},part_c:{applicable:true}},
+      energy:{applicability:{rated:true},result_per_branch:[{branch:"D",final_class:"B"}]}
+    }};
+    const t2sb=sandbox(s2,["evidenceRows","todayISO","checkRow"],{home});
+    const {evidenceRows}=t2sb;
+    const checkRow=(r,e)=>t2sb.checkRow(r,e);
+    const rows=evidenceRows();
+    t("tool2: evidence rows generated from blocks (6 expected)", ()=>{assert(rows.length===6,"got "+rows.length); return rows.map(r=>r.id).join(", ");});
+    const tens=rows.find(r=>r.id==="durability::tensile_retention");
+    t("tool2: missing evidence → MISSING", ()=>assert(checkRow(tens,undefined).status==="missing"));
+    t("tool2: wrong wash procedure → FINDING OPEN", ()=>{
+      const f=checkRow(tens,{declared:"85",measured:"85",methodUsed:"ISO 15797 procedure 4 x50",reportRef:"L1",specimens:"6"});
+      assert(f.status==="open"&&f.reasons.some(r=>r.includes("mismatch")));
+    });
+    t("tool2: declared exceeds measured → FINDING OPEN", ()=>{
+      const f=checkRow(tens,{declared:"90",measured:"85",methodUsed:"ISO 15797 procedure 8 x50",reportRef:"L1",specimens:"6"});
+      assert(f.status==="open"&&f.reasons.some(r=>r.includes("exceed")));
+    });
+    t("tool2: specimen count below minimum → INCOMPLETE", ()=>{
+      const f=checkRow(tens,{declared:"85",measured:"85",methodUsed:"ISO 15797 procedure 8 x50",reportRef:"L1",specimens:"3"});
+      assert(f.flags.includes("INCOMPLETE"));
+    });
+    t("tool2: clean evidence on provisional thresholds → DECLARED-UNVERIFIED", ()=>{
+      const f=checkRow(tens,{declared:"85",measured:"85",methodUsed:"ISO 15797 procedure 8 x50",reportRef:"L1",specimens:"6"});
+      assert(f.status==="unverified"&&f.reasons.some(r=>r.includes("provisional")));
+    });
+    const rc=rows.find(r=>r.id==="materials::recycled_content");
+    t("tool2: expired certificate → INCOMPLETE", ()=>{
+      const f=checkRow(rc,{declared:"15",docRef:"GRS-1",validUntil:"2020-01-01"});
+      assert(f.status==="open"&&f.reasons.some(r=>r.includes("expired")));
+    });
+    t("tool2: future report date → IMPLAUSIBLE", ()=>{
+      const f=checkRow(rc,{declared:"15",docRef:"GRS-1",reportDate:"2099-01-01"});
+      assert(f.flags.includes("IMPLAUSIBLE"));
+    });
+  }
+
+  /* ---------- tool3.html logic ---------- */
+  const s3=scriptOf(pages["tool3.html"]);
+  {
+    const t2={findings:{rows:{"a::x":{status:"open",reasons:["r"]},"a::y":{status:"verified",reasons:["ok"]}}},evidence:{"a::x":{declared:"5"}}};
+    const v3=sandbox(s3,["statusOf","consumerValue","ev"],{t2});
+    const {consumerValue,ev}=v3;
+    t("tool3: status lookup + missing default", ()=>assert(v3.statusOf("a::x")==="open"&&v3.statusOf("zz")==="missing"));
+    t("tool3: consumer honesty wording (open/missing/clean)", ()=>{
+      assert(consumerValue("a::x","v")==="Information under review");
+      assert(consumerValue("zz","v")==="Not yet assessed");
+      assert(consumerValue("a::y","v")==="v");
+    });
+    t("tool3: no artefact references in consumer view template", ()=>{
+      const cons=pages["tool3.html"].match(/consumer-card[\s\S]*?<\/div>/);
+      assert(!s3.includes('reportRef') || !s3.match(/consumer[\s\S]{0,800}reportRef/i), "possible artefact leak into consumer rendering");
+    });
+  }
+
+  /* ---------- render ---------- */
+  const tb=document.querySelector("#results tbody");
+  tb.innerHTML=results.map(r=>'<tr><td>'+r[0]+'</td><td class="'+(r[1]?"pass":"fail")+'">'+(r[1]?"PASS":"FAIL")+'</td><td class="hint">'+r[2]+'</td></tr>').join("");
+  document.getElementById("results").style.display="table";
+  const fails=results.filter(r=>!r[1]).length;
+  document.getElementById("summary").innerHTML = fails
+    ? '<span class="fail">'+fails+' of '+results.length+' tests FAILED</span> — do not release; see details below.'
+    : '<span class="pass">All '+results.length+' tests passed ✓</span>';
+  document.getElementById("note").textContent="Version note: re-run after every file change and before every partner demo.";
+}
+document.getElementById("run").addEventListener("click",runAll);
+</script>
+</body>
+</html>

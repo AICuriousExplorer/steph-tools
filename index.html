@@ -117,7 +117,7 @@
     <details class="settings">
       <summary>Settings — GPT links (defaults built in; override only if needed)</summary>
       <div class="cfg" id="cfg"></div>
-      <p class="hint">The STEPH analyser GPT links are built into the page. Paste a URL here only to point a grouping at a different GPT (e.g. a test version); leave blank to use the default.</p>
+      <p class="hint">Analyser GPT links are built in. The Product Characteriser is new — publish it and paste its link here once. Other fields: override only.</p>
     </details>
   </div>
 
@@ -151,16 +151,18 @@
 
 /* ---------------- configuration ---------------- */
 const GROUPINGS = [
-  { id:"durability", url:"https://chatgpt.com/g/g-6a4f913ae5bc8191bfae02dafe1692c8-steph-durability-analyser",    name:"Durability",        needs:[],                          keyField:"priority_parts",
-    blurb:"Functional durability, reliability, appearance & comfort. Runs first — its JSON feeds every other assistant." },
-  { id:"repair", url:"https://chatgpt.com/g/g-6a4fa65242808191b8f6bebbb8a88a75-steph-repairability-analyser",        name:"Repairability",     needs:["durability"],              keyField:"repair_demand",
-    blurb:"Repair, renewal, spare parts, care & maintenance, reuse. Consumes the durability priority parts." },
-  { id:"recyclability", url:"https://chatgpt.com/g/g-6a4fad252ef08191ad5d3dbe0a64aa16-steph-recyclability-analyser", name:"Recyclability",     needs:["durability"], soft:["repair"], keyField:"clusters",
-    blurb:"Whole-product rating vs NOW/2030 scenarios. Uses durability scope; joint classes from repair if run." },
-  { id:"materials", url:"https://chatgpt.com/g/g-6a4fc5a7328c819191173465d5879e06-steph-material-content-analyser",     name:"Material content",  needs:["durability"], soft:["recyclability"], keyField:"part_a",
-    blurb:"Recycled content %, SoC gate + class, microfibre release class. Reuses the recyclability mass table if run." },
-  { id:"energy", url:"https://chatgpt.com/g/g-6a4fb8ecaf008191bbc037d9a4fe085c-steph-in-use-impacts-analyser",        name:"Energy use (care)", needs:["durability"],              keyField:"class_scheme",
-    blurb:"A–G care energy class from the validated care regime. N/A for rarely-washed groups — that is a valid outcome." },
+  { id:"characterisation", name:"Product characterisation", needs:[], keyField:"component_map",
+    blurb:"THE FOUNDATION — runs first, always. Scope, duty classes, modules, part–function analysis, failure register, component map, reference care regime. Its block feeds all five analysers." },
+  { id:"durability",    url:"https://chatgpt.com/g/g-6a4f913ae5bc8191bfae02dafe1692c8-steph-durability-analyser", name:"Durability",        needs:["characterisation"],              keyField:"priority_parts",
+    blurb:"Functional durability, reliability, appearance & comfort. Also validates the reference care regime (feeds Energy)." },
+  { id:"repair",        url:"https://chatgpt.com/g/g-6a4fa65242808191b8f6bebbb8a88a75-steph-repairability-analyser", name:"Repairability",     needs:["characterisation"], soft:["durability"], keyField:"repair_demand",
+    blurb:"Repair, renewal, spare parts, care & maintenance, reuse. Builds on the foundation failure register; durability wear evidence refines it if available." },
+  { id:"recyclability", url:"https://chatgpt.com/g/g-6a4fad252ef08191ad5d3dbe0a64aa16-steph-recyclability-analyser", name:"Recyclability",     needs:["characterisation"], soft:["repair"], keyField:"clusters",
+    blurb:"Whole-product rating vs NOW/2030 scenarios, from the foundation component map; repair block refines joint classes if available." },
+  { id:"materials",     url:"https://chatgpt.com/g/g-6a4fc5a7328c819191173465d5879e06-steph-material-content-analyser", name:"Material content",  needs:["characterisation"], soft:["recyclability","durability"], keyField:"part_a",
+    blurb:"Recycled content %, SoC gate + class, microfibre release class. Reconciles against the foundation component map." },
+  { id:"energy",        url:"https://chatgpt.com/g/g-6a4fb8ecaf008191bbc037d9a4fe085c-steph-in-use-impacts-analyser", name:"Energy use (care)", needs:["characterisation"], soft:["durability"], keyField:"class_scheme",
+    blurb:"A–G care energy class from the reference care regime (CONDITIONAL until durability validates it). N/A for rarely-washed groups is a valid outcome." },
 ];
 
 /* ---------------- state ---------------- */
@@ -177,13 +179,15 @@ let lastSave = null;   // {id, warnings[]}
 function composePrompt(g){
   const product = (state.product||"").trim() || "[product type]";
   let p = "";
-  if (g.id === "durability"){
-    p = "Draft a durability standard for: " + product;
+  if (g.id === "characterisation"){
+    p = "Characterise the product group: " + product;
+  } else if (!g.needs.some(d=>state.blocks[d])){
+    p = "Draft the " + g.name.toLowerCase() + " standard for: " + product + " (STANDALONE MODE — no foundation block available)";
   } else {
     p = "Product type: " + product + "\nDraft the " + g.name.toLowerCase() + " standard in HANDOFF MODE using the block(s) below.\n";
     const feeds = g.needs.concat(g.soft||[]);
     for (const dep of feeds){
-      if (state.blocks[dep]) p += "\n--- " + dep.toUpperCase() + " HANDOFF JSON ---\n" + JSON.stringify(state.blocks[dep]) + "\n";
+      if (state.blocks[dep]) p += "\n--- " + (dep==="characterisation" ? "FOUNDATION BLOCK (Product Characteriser)" : dep.toUpperCase()+" HANDOFF JSON") + " ---\n" + JSON.stringify(state.blocks[dep]) + "\n";
     }
     const missingSoft = (g.soft||[]).filter(d=>!state.blocks[d]);
     if (missingSoft.length) p += "\n(Note: no " + missingSoft.join("/") + " block available — proceed without it.)";
