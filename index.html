@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22g%22%20x1%3D%221%22%20y1%3D%220%22%20x2%3D%220%22%20y2%3D%221%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%231E3A6E%22/%3E%3Cstop%20offset%3D%22.5%22%20stop-color%3D%22%232F9B84%22/%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%238CC63F%22/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath%20d%3D%22M88%204%20C%2090%2040%2086%2070%2062%2086%20C%2040%2098%2014%2094%208%2088%20C%202%2082%202%2056%2014%2036%20C%2030%2010%2062%202%2088%204%20Z%22%20fill%3D%22url%28%23g%29%22/%3E%3Cpath%20d%3D%22M86%208%20C%2062%2024%2042%2048%2020%2088%22%20stroke%3D%22%23fff%22%20stroke-width%3D%222.6%22%20fill%3D%22none%22%20opacity%3D%22.55%22/%3E%3Cpath%20d%3D%22M80%206%20C%2054%2024%2034%2050%2014%2082%22%20stroke%3D%22%23fff%22%20stroke-width%3D%221.8%22%20fill%3D%22none%22%20opacity%3D%22.4%22/%3E%3Cpath%20d%3D%22M88%2016%20C%2068%2034%2050%2058%2030%2090%22%20stroke%3D%22%23fff%22%20stroke-width%3D%221.8%22%20fill%3D%22none%22%20opacity%3D%22.4%22/%3E%3C/svg%3E">
 <title>STEPH Tool 1 — Assessment Designer</title>
 <style>
   :root{
@@ -107,8 +108,14 @@
 
   <div class="panel">
     <h2>1 · Product</h2>
-    <label for="product">Product type / product group</label>
-    <input type="text" id="product" placeholder="e.g. bed linen, bath towels, everyday trainers" autocomplete="off">
+    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <div style="flex:1;min-width:260px">
+        <label for="product">Product type / product group</label>
+        <input type="text" id="product" placeholder="e.g. bed linen, bath towels, everyday trainers" autocomplete="off">
+      </div>
+      <button class="btn-ghost" id="newBtn" title="Clears product, saved blocks and evidence — GPT links are kept">Start a new assessment</button>
+    </div>
+    <div id="mismatch"></div>
     <p class="flow-note">One input is enough — each assistant derives the group scope itself.</p>
 
     <div style="margin-top:14px"><label>Parameter groupings to assess</label></div>\n    <p class="flow-note">Product characterisation is the foundation every analyser builds on — it always runs first and cannot be deselected.</p>
@@ -176,6 +183,24 @@ function ensureFoundation(sel){
 }
 state.selected = ensureFoundation(state.selected||[]);
 function save(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+function blocksProduct(){
+  for (const b of Object.values(state.blocks)) if (b && b.product_group) return b.product_group;
+  return null;
+}
+function productMismatch(){
+  const bp = blocksProduct();
+  const cur = (state.product||"").trim().toLowerCase();
+  if (!bp || !cur) return null;
+  return bp.trim().toLowerCase() !== cur ? bp : null;
+}
+function startNew(){
+  if (Object.keys(state.blocks).length &&
+      !confirm("Start a new assessment? This clears the product, all saved blocks, and any evidence/findings. (Download the record first if you want to keep this one. GPT links are kept.)")) return;
+  state.product = ""; state.blocks = {}; lastSave = null; save();
+  try { localStorage.removeItem("steph_tool2_v1"); } catch(e){}
+  document.getElementById("product").value = "";
+  renderAll();
+}
 
 /* in-memory UI state (not persisted): which cards are expanded, last save result */
 const openCards = {};
@@ -254,6 +279,11 @@ function renderGroupings(){
     const c = document.createElement("input");
     c.type = "checkbox"; c.checked = state.selected.includes(g.id);
     c.addEventListener("change", () => {
+      if (!c.checked && state.blocks[g.id]){
+        if (confirm("\u201C"+g.name+"\u201D has a saved block. Delete it too?\nOK = delete the block \u00B7 Cancel = keep it (the card is just hidden and will still show as saved if re-ticked)")){
+          delete state.blocks[g.id]; lastSave=null;
+        }
+      }
       state.selected = ensureFoundation(GROUPINGS.map(x=>x.id).filter(id =>
         id === g.id ? c.checked : state.selected.includes(id)));
       save(); renderAll();
@@ -382,6 +412,7 @@ function renderCards(){
       copyBtn.disabled = st === "locked";
       copyBtn.addEventListener("click", async ()=>{
         if (!(state.product||"").trim()){ alert("Enter the product type first (section 1)."); return; }
+        if (productMismatch()){ alert("The saved blocks are for a different product — resolve the warning in section 1 first (start a new assessment or go back to the previous product)."); return; }
         const txt = composePrompt(g);
         try { await navigator.clipboard.writeText(txt); copyBtn.textContent = "Copied ✓"; }
         catch(e){ window.prompt("Copy this prompt:", txt); }
@@ -446,6 +477,25 @@ function pasteArea(g){
   return holder;
 }
 
+function renderMismatch(){
+  const el = document.getElementById("mismatch");
+  const bp = productMismatch();
+  if (!bp){ el.innerHTML=""; return; }
+  el.innerHTML = '<div class="banner warn" style="margin-top:8px"><b>Product changed — saved work is for \u201C'+bp+
+    '\u201D</b>The saved blocks below belong to \u201C'+bp+'\u201D, not \u201C'+ (state.product||"") +
+    '\u201D. Mixing products would corrupt the assessment record.</div>';
+  const row = document.createElement("div"); row.className="row";
+  const b1 = document.createElement("button"); b1.className="btn-primary btn-small";
+  b1.textContent = "Start a new assessment for \u201C"+state.product+"\u201D";
+  b1.addEventListener("click", ()=>{ const keep=state.product; state.blocks={}; lastSave=null; state.product=keep; save();
+    try{ localStorage.removeItem("steph_tool2_v1"); }catch(e){}
+    renderAll(); });
+  const b2 = document.createElement("button"); b2.className="btn-ghost btn-small";
+  b2.textContent = "Go back to \u201C"+bp+"\u201D";
+  b2.addEventListener("click", ()=>{ state.product=bp; save(); document.getElementById("product").value=bp; renderAll(); });
+  el.firstChild.appendChild(row); row.appendChild(b1); row.appendChild(b2);
+}
+
 function renderSummary(){
   const el = document.getElementById("recordSummary");
   const saved = GROUPINGS.filter(g=>state.blocks[g.id]);
@@ -455,7 +505,7 @@ function renderSummary(){
     " groupings: " + saved.map(g=>g.name).join(", ");
 }
 
-function renderAll(){ renderGroupings(); renderCards(); }
+function renderAll(){ renderGroupings(); renderCards(); renderMismatch(); }
 
 /* ---------------- record export / import / reset ---------------- */
 function record(){
@@ -487,17 +537,13 @@ document.getElementById("importFile").addEventListener("change", (ev)=>{
     } catch(e){ alert("Could not import: " + e.message); }
   });
 });
-document.getElementById("resetBtn").addEventListener("click", ()=>{
-  if (!confirm("Clear the product and all saved blocks? (Your GPT links are kept.)")) return;
-  state.product = ""; state.blocks = {}; lastSave = null; save();
-  document.getElementById("product").value = "";
-  renderAll();
-});
+document.getElementById("resetBtn").addEventListener("click", startNew);
 
 /* ---------------- init ---------------- */
 const productInput = document.getElementById("product");
 productInput.value = state.product || "";
-productInput.addEventListener("input", ()=>{ state.product = productInput.value; save(); renderStepper(); renderSummary(); });
+productInput.addEventListener("input", ()=>{ state.product = productInput.value; save(); renderStepper(); renderSummary(); renderMismatch(); });
+document.getElementById("newBtn").addEventListener("click", startNew);
 
 renderCfg(); renderAll();
 </script>
