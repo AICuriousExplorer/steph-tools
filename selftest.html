@@ -126,6 +126,12 @@ async function runAll(){
     assert(w.some(x=>x.includes("repair_demand"))&&w.some(x=>x.includes("differs")));
     return w.length+" warnings";
   });
+  t("index: characterisation cannot be deselected (guard)", ()=>{
+    const g2=sandbox(s1,["ensureFoundation"],{GROUPINGS});
+    const out=g2.ensureFoundation(["durability","energy"]);
+    assert(out.includes("characterisation"),"guard failed to re-add foundation");
+    assert(out[0]==="characterisation","foundation not first");
+  });
   t("index: clean block passes with no warnings", ()=>{
     const w=validateBlock(GROUPINGS.find(g=>g.id==="repair"),
       {product_group:"bed linen",repair_demand:[],standard_clause_map:[]});

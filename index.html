@@ -111,7 +111,7 @@
     <input type="text" id="product" placeholder="e.g. bed linen, bath towels, everyday trainers" autocomplete="off">
     <p class="flow-note">One input is enough — each assistant derives the group scope itself.</p>
 
-    <div style="margin-top:14px"><label>Parameter groupings to assess</label></div>
+    <div style="margin-top:14px"><label>Parameter groupings to assess</label></div>\n    <p class="flow-note">Product characterisation is the foundation every analyser builds on — it always runs first and cannot be deselected.</p>
     <div class="groupings" id="groupings"></div>
 
     <details class="settings">
@@ -169,6 +169,12 @@ const GROUPINGS = [
 const LS_KEY = "steph_homepage_v1";
 let state = { product:"", selected:["durability","repair","recyclability","materials","energy"], blocks:{}, urls:{} };
 try { const raw = localStorage.getItem(LS_KEY); if (raw) state = Object.assign(state, JSON.parse(raw)); } catch(e){}
+function ensureFoundation(sel){
+  // the characterisation step is the prerequisite for every analyser — it can never be deselected
+  const out = GROUPINGS.map(x=>x.id).filter(id => id==="characterisation" || sel.includes(id));
+  return out;
+}
+state.selected = ensureFoundation(state.selected||[]);
 function save(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
 
 /* in-memory UI state (not persisted): which cards are expanded, last save result */
@@ -239,11 +245,17 @@ function renderGroupings(){
   wrap.innerHTML = "";
   for (const g of GROUPINGS){
     const l = document.createElement("label");
+    if (g.id === "characterisation"){
+      l.style.background = "var(--ok-bg)"; l.style.borderColor = "#b7dfc2"; l.style.cursor = "default";
+      l.innerHTML = "\u2713 " + g.name + "&nbsp;<span class='hint' style='margin:0'>(foundation \u2014 always included)</span>";
+      wrap.appendChild(l);
+      continue;
+    }
     const c = document.createElement("input");
     c.type = "checkbox"; c.checked = state.selected.includes(g.id);
     c.addEventListener("change", () => {
-      state.selected = GROUPINGS.map(x=>x.id).filter(id =>
-        id === g.id ? c.checked : state.selected.includes(id));
+      state.selected = ensureFoundation(GROUPINGS.map(x=>x.id).filter(id =>
+        id === g.id ? c.checked : state.selected.includes(id)));
       save(); renderAll();
     });
     l.appendChild(c); l.appendChild(document.createTextNode(g.name));
