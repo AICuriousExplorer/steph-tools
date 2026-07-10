@@ -84,10 +84,10 @@ async function runAll(){
 
   /* ---------- index.html logic ---------- */
   const s1=scriptOf(pages["index.html"]);
-  t("index: GPT links embedded for all five analysers", ()=>{
-    const slugs=["durability-analyser","repairability-analyser","recyclability-analyser","material-content-analyser","in-use-impacts-analyser"];
+  t("index: GPT links embedded for characteriser + five analysers", ()=>{
+    const slugs=["product-characterisation-analyser","durability-analyser","repairability-analyser","recyclability-analyser","material-content-analyser","in-use-impacts-analyser"];
     for(const sl of slugs) assert(s1.includes(sl),"missing "+sl);
-    return "5 links";
+    return "6 links";
   });
   const GROUPINGS=new Function("return "+s1.match(/const GROUPINGS = (\[[\s\S]*?\]);/)[1])();
   t("index: six groupings configured (characterisation + five analysers)", ()=>assert(GROUPINGS.length===6));

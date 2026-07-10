@@ -117,7 +117,7 @@
     <details class="settings">
       <summary>Settings — GPT links (defaults built in; override only if needed)</summary>
       <div class="cfg" id="cfg"></div>
-      <p class="hint">Analyser GPT links are built in. The Product Characteriser is new — publish it and paste its link here once. Other fields: override only.</p>
+      <p class="hint">All six GPT links are built into the page. Paste a URL here only to override (e.g. a test version).</p>
     </details>
   </div>
 
@@ -151,7 +151,7 @@
 
 /* ---------------- configuration ---------------- */
 const GROUPINGS = [
-  { id:"characterisation", name:"Product characterisation", needs:[], keyField:"component_map",
+  { id:"characterisation", url:"https://chatgpt.com/g/g-6a50ba03b6b0819198ffe69ff2bbf152-product-characterisation-analyser", name:"Product characterisation", needs:[], keyField:"component_map",
     blurb:"THE FOUNDATION — runs first, always. Scope, duty classes, modules, part–function analysis, failure register, component map, reference care regime. Its block feeds all five analysers." },
   { id:"durability",    url:"https://chatgpt.com/g/g-6a4f913ae5bc8191bfae02dafe1692c8-steph-durability-analyser", name:"Durability",        needs:["characterisation"],              keyField:"priority_parts",
     blurb:"Functional durability, reliability, appearance & comfort. Also validates the reference care regime (feeds Energy)." },

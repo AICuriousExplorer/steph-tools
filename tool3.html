@@ -155,7 +155,7 @@ function render(){
 
   /* ---------- MSA ---------- */
   let msa='<div class="auth">Authenticated view — not public</div>';
-  const gname={durability:"Durability",repair:"Repairability",recyclability:"Recyclability",materials:"Material content",energy:"Energy use (care)"};
+  const gname={characterisation:"Product characterisation",durability:"Durability",repair:"Repairability",recyclability:"Recyclability",materials:"Material content",energy:"Energy use (care)"};
   for (const [gid,blk] of Object.entries(B)){
     msa+="<h3>"+gname[gid]+"</h3><table><tr><th>Item</th><th>Declared</th><th>Measured</th><th>Artefact</th><th>Status</th><th>Findings</th></tr>";
     const ids=[];

@@ -153,7 +153,7 @@ function checkRow(r, e){
 }
 
 /* ---------- rendering ---------- */
-const GNAMES={durability:"Durability",repair:"Repairability",recyclability:"Recyclability",materials:"Material content",energy:"Energy use (care)"};
+const GNAMES={characterisation:"Product characterisation",durability:"Durability",repair:"Repairability",recyclability:"Recyclability",materials:"Material content",energy:"Energy use (care)"};
 function renderStatus(){
   const el=document.getElementById("recordStatus");
   if (!home || !home.blocks || !Object.keys(home.blocks).length){
